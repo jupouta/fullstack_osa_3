@@ -1,7 +1,6 @@
-POST https://damp-island-16531.herokuapp.com/api/persons
+POST http://localhost:3001/api/persons
 content-type: application/json
 
 {
-    "name": "esimerkki",
-    "number": "00000"
+    "name": "Joulupukki"
 }

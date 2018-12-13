@@ -9,7 +9,7 @@ if(process.env.NODE_ENV !== 'prod') {
   const dotenv = require('dotenv').config()
 }
 
-const url = `mongodb://${process.env.USERNAME}:${process.env.PASSWORD}@ds255463.mlab.com:55463/fullstack-persons`
+const url = process.env.MONGODB_URI
 mongoose.connect(url)
 
 const Person = require('./models/person')
@@ -26,33 +26,14 @@ app.use(
   morgan(':method :url :status :content :res[content-length] - :response-time ms')
   )
 
-// let persons = [
-//     {
-//         "name": "Arto Hellas",
-//         "number": "040-123456",
-//         "id": 1
-//       },
-//       {
-//         "name": "Martti Tienari",
-//         "number": "040-123456",
-//         "id": 2
-//       },
-//       {
-//         "name": "Arto Järvinen",
-//         "number": "040-123456",
-//         "id": 3
-//       },
-//       {
-//         "name": "Lea Kutvonen",
-//         "number": "040-123456",
-//         "id": 4
-//       }
-// ]
-
 app.get('/info', (req, res) => {
     const date = Date()
-    const structure = '<div>puhelinluettelossa on '+persons.length+' henkilön tiedot</div><p>'+date+'</p>'
-    res.send(structure)
+      Person
+        .find({})
+        .then(persons => {
+          const structure = '<div>puhelinluettelossa on '+persons.length+' henkilön tiedot</div><p>'+date+'</p>'
+          res.send(structure)
+        })
 })
   
 app.get('/api/persons', (req, res) => {
@@ -67,46 +48,75 @@ app.get('/api/persons/:id', (req, res) => {
     Person
       .findById(req.params.id)
       .then(person => {
-        const formattedPerson = Person.format(person)
-        console.log('haettu hlö', formattedPerson)
-        res.json(formattedPerson)
+        if (person) {
+          const formattedPerson = Person.format(person)
+          res.json(formattedPerson)
+        } else {
+          res.status(404).end()
+        }
+      })
+      .catch(error => {
+        console.log(error)
+        res.status(404).send({error: 'malformatted id'})
       })
 })
 
 app.delete('/api/persons/:id', (request, response) => {
-    const id = Number(request.params.id)
-
     Person
-      .findById(request.params.id)
+      .findByIdAndRemove(request.params.id)
       .then(person => {
-        response.json(person.format)
+        response.status(204).end()
+      })
+      .catch(error => {
+        response.status(400).send({error: 'malformatted id'})
       })
   })
 
 app.post('/api/persons', (request, response) => {
     const body = request.body
-    console.log(body)
 
     if (body.name === undefined || body.number === undefined) {
       return response.status(400).json({ error: 'name or number missing' })
     }
-    
-    // const personNames = persons.map(person => person.name)
-
-    // if (personNames.includes(body.name)) {
-    //   return response.status(400).json({error: 'name must be unique'})
-    // }
 
     const newPerson = new Person ({
-        name: body.name,
-        number: body.number
-      })
-  
-    newPerson
-      .save()
-      .then(savedPerson => {
-        response.json(Person.format(savedPerson))
-      })
+      name: body.name,
+      number: body.number
+    })
+
+    Person
+      .find({name: body.name})
+      .then(result => {
+        if (result.length > 0) {
+          return response.status(404).json({error: 'name must be unique'})
+        } else {
+            newPerson
+            .save()
+            .then(result => {
+              console.log('here the new')
+              response.json(Person.format({name: result.name, number: result.number}))
+              })          
+        }
+      })  
+})
+
+app.put('/api/persons/:id', (request, response) => {
+  const body = request.body
+
+  const newPerson = {
+    name: body.name,
+    number: body.number
+  }
+
+  Person
+    .findByIdAndUpdate(request.params.id, newPerson, { new: true } )
+    .then(updatedPerson => {
+      response.json(Person.format(updatedPerson))
+    })
+    .catch(error => {
+      console.log(error)
+      response.status(400).send({ error: 'malformatted id' })
+    })
 })
 
 const PORT = process.env.PORT || 3001
