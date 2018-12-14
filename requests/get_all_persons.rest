@@ -1,1 +1,1 @@
-GET http://localhost:3001/api/persons
+GET https://damp-island-16531.herokuapp.com/api/persons
